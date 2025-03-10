@@ -3,14 +3,10 @@ const path = require('path');
 const multer = require('multer');
 const compress = require('./api/compress');
 const download = require('./api/download');
-const { setupWebSocket } = require('./api/websocket');
-const http = require('http');
+const status = require('./api/status');
 
 // 创建 Express 应用
 const app = express();
-
-// 创建 HTTP 服务器
-const server = http.createServer(app);
 
 // 配置 multer
 const upload = multer({
@@ -69,6 +65,7 @@ app.post('/api/compress', (req, res, next) => {
 });
 
 app.get('/api/download', download);
+app.get('/api/status', status);
 
 // 处理根路由
 app.get('/', (req, res) => {
@@ -87,16 +84,13 @@ app.get('/api/health', (req, res) => {
   res.status(200).json({ status: 'ok' });
 });
 
-// 设置 WebSocket
-setupWebSocket(server);
-
 // 启动服务器（本地开发环境）
 if (process.env.NODE_ENV !== 'production') {
   const PORT = process.env.PORT || 3000;
-  server.listen(PORT, () => {
+  app.listen(PORT, () => {
     console.log(`Server is running on port ${PORT}`);
   });
 }
 
-// 导出 server 实例供 Vercel 使用
-module.exports = server; 
+// 导出 app 实例供 Vercel 使用
+module.exports = app; 

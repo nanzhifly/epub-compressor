@@ -14,14 +14,6 @@
   ],
   "routes": [
     {
-      "src": "/ws",
-      "dest": "/server.js",
-      "headers": {
-        "Upgrade": "websocket",
-        "Connection": "upgrade"
-      }
-    },
-    {
       "src": "/api/(.*)",
       "dest": "/server.js",
       "headers": {
