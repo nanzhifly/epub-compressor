@@ -17,8 +17,18 @@
       "handle": "filesystem"
     },
     {
+      "src": "/ws",
+      "dest": "/server.js",
+      "check": true
+    },
+    {
       "src": "/api/(.*)",
-      "dest": "/server.js"
+      "dest": "/server.js",
+      "headers": {
+        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+        "Access-Control-Allow-Headers": "Content-Type"
+      }
     },
     {
       "src": "/(.*)",
