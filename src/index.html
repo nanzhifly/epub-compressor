@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EPUB Compressor</title>
+    <link rel="stylesheet" href="styles/main.css">
+</head>
+<body>
+    <div class="container">
+        <!-- Header Area -->
+        <header class="hero">
+            <h1>EPUB Compressor</h1>
+            <p class="hero-subtitle">Free online tool to compress EPUB files while maintaining quality</p>
+        </header>
+
+        <!-- Main Content Area -->
+        <main class="main-content">
+            <!-- Upload Area -->
+            <section class="upload-section">
+                <div class="upload-area" id="dropZone">
+                    <input type="file" id="fileInput" accept=".epub" hidden>
+                    <div class="upload-content">
+                        <div class="upload-icon">📚</div>
+                        <p class="upload-text">Drop your EPUB file here</p>
+                        <p class="upload-hint">or</p>
+                        <button id="selectFile" class="cta-button">Choose File</button>
+                        <p class="file-limit">Maximum file size: 50MB</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Compression Settings Panel -->
+            <section class="compression-panel" id="compressionPanel" hidden>
+                <h2>Compression Settings</h2>
+                <div class="file-info" id="fileInfo">
+                    <p class="file-name"></p>
+                    <p class="file-size"></p>
+                </div>
+                
+                <div class="compression-controls">
+                    <div class="control-group">
+                        <label for="compressionLevel">Compression Level:</label>
+                        <select id="compressionLevel" class="compression-select">
+                            <option value="low">Light Compression (Best Quality)</option>
+                            <option value="medium" selected>Standard Compression (Recommended)</option>
+                            <option value="high">Maximum Compression (Smallest Size)</option>
+                        </select>
+                    </div>
+                    <button id="compressButton" class="cta-button">Start Compression</button>
+                </div>
+            </section>
+
+            <!-- Progress Display Area -->
+            <section class="progress-section" id="progressSection" hidden>
+                <div class="progress-container">
+                    <div class="progress-status">
+                        <span id="progressText">Compressing...</span>
+                        <span id="progressPercent">0%</span>
+                    </div>
+                    <div class="progress-bar">
+                        <div class="progress-fill" id="progressBar"></div>
+                    </div>
+                    <p id="statusMessage" class="status-message"></p>
+                </div>
+            </section>
+
+            <!-- Download Area -->
+            <section class="download-section" id="downloadSection" hidden>
+                <div class="download-content">
+                    <div class="download-info">
+                        <h3>Compression Complete!</h3>
+                        <p id="compressionResults"></p>
+                    </div>
+                    <a id="downloadLink" class="cta-button download-button" download>
+                        Download Compressed File
+                    </a>
+                    <button id="compressNewFile" class="secondary-button">Compress Another File</button>
+                </div>
+            </section>
+        </main>
+
+        <!-- Features Section -->
+        <section class="features">
+            <div class="feature-item">
+                <div class="feature-icon">✨</div>
+                <h3>Maintain Quality</h3>
+                <p>Smart compression algorithm ensures reading experience</p>
+            </div>
+            <div class="feature-item">
+                <div class="feature-icon">🔒</div>
+                <h3>Secure & Private</h3>
+                <p>Files processed locally, no server upload needed</p>
+            </div>
+            <div class="feature-item">
+                <div class="feature-icon">⚡️</div>
+                <h3>Fast Processing</h3>
+                <p>Instant compression, immediate download</p>
+            </div>
+        </section>
+
+        <!-- Footer -->
+        <footer class="footer">
+            <p>© 2024 EPUB Compressor - Free EPUB compression service</p>
+        </footer>
+    </div>
+
+    <!-- JavaScript Files -->
+    <script src="js/upload.js"></script>
+    <script src="js/compress.js"></script>
+    <script src="js/progress.js"></script>
+</body>
+</html> 

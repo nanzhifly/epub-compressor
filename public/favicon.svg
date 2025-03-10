@@ -1,0 +1,13 @@
+<svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- 背景 -->
+  <rect width="32" height="32" rx="6" fill="#f5f5f7"/>
+  
+  <!-- 文档形状 -->
+  <path d="M8 4C8 3.44772 8.44772 3 9 3H17L24 10V28C24 28.5523 23.5523 29 23 29H9C8.44772 29 8 28.5523 8 28V4Z" fill="#0071e3"/>
+  
+  <!-- 文档折角 -->
+  <path d="M17 3L24 10H18C17.4477 10 17 9.55228 17 9V3Z" fill="#ffffff"/>
+  
+  <!-- 压缩箭头 -->
+  <path d="M16 14L12 18H15V22H17V18H20L16 14Z" fill="#ffffff"/>
+</svg> 

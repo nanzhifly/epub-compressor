@@ -1,0 +1,25 @@
+{
+  "version": 2,
+  "builds": [
+    { "src": "src/**/*", "use": "@vercel/static" },
+    { "src": "api/**/*.js", "use": "@vercel/node" }
+  ],
+  "routes": [
+    { "src": "/api/compress", "dest": "/api/compress.js" },
+    { "src": "/api/download", "dest": "/api/download.js" },
+    { "src": "/(.*)", "dest": "/src/$1" }
+  ],
+  "env": {
+    "NODE_ENV": "production",
+    "MAX_FILE_SIZE": "52428800",
+    "MAX_BATCH_FILES": "10",
+    "COMPRESSION_CACHE_DURATION": "86400000",
+    "MAX_CONCURRENT_COMPRESSIONS": "5"
+  },
+  "functions": {
+    "api/**/*.js": {
+      "memory": 1024,
+      "maxDuration": 60
+    }
+  }
+} 
