@@ -1,0 +1,27 @@
+services:
+  - type: web
+    name: epub-compressor
+    env: node
+    buildCommand: npm install
+    startCommand: node server.js
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: MAX_FILE_SIZE
+        value: 52428800
+      - key: MAX_BATCH_FILES
+        value: 10
+      - key: COMPRESSION_CACHE_DURATION
+        value: 86400000
+      - key: MAX_CONCURRENT_COMPRESSIONS
+        value: 5
+    headers:
+      - path: /*
+        name: Access-Control-Allow-Origin
+        value: "*"
+      - path: /*
+        name: Access-Control-Allow-Methods
+        value: "GET, POST, OPTIONS"
+      - path: /*
+        name: Access-Control-Allow-Headers
+        value: "Content-Type, X-Requested-With"

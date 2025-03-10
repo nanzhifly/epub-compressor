@@ -4,7 +4,8 @@
   "description": "Free online EPUB file compression tool",
   "main": "server.js",
   "scripts": {
-    "dev": "node server.js",
+    "start": "node server.js",
+    "dev": "nodemon server.js",
     "deploy": "vercel deploy",
     "test": "node test/test.js"
   },

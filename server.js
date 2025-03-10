@@ -79,18 +79,8 @@ app.get('*', (req, res) => {
   }
 });
 
-// 处理 Vercel 的健康检查
-app.get('/api/health', (req, res) => {
-  res.status(200).json({ status: 'ok' });
-});
-
-// 启动服务器（本地开发环境）
-if (process.env.NODE_ENV !== 'production') {
-  const PORT = process.env.PORT || 3000;
-  app.listen(PORT, () => {
-    console.log(`Server is running on port ${PORT}`);
-  });
-}
-
-// 导出 app 实例供 Vercel 使用
-module.exports = app; 
+// 启动服务器
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => {
+  console.log(`Server is running on port ${PORT}`);
+}); 
