@@ -2,8 +2,10 @@ services:
   - type: web
     name: epub-compressor
     env: node
+    plan: free
     buildCommand: npm install
     startCommand: node server.js
+    autoDeploy: true
     envVars:
       - key: NODE_ENV
         value: production
@@ -15,6 +17,11 @@ services:
         value: 86400000
       - key: MAX_CONCURRENT_COMPRESSIONS
         value: 5
+    healthCheckPath: /health
+    disk:
+      name: tmp
+      mountPath: /tmp
+      sizeGB: 1
     headers:
       - path: /*
         name: Access-Control-Allow-Origin

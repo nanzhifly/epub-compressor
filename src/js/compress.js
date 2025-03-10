@@ -18,24 +18,95 @@ class Compressor {
         this.compressNewFile.addEventListener('click', () => this.resetUI());
     }
 
+    async startCompression() {
+        const file = this.fileInput.files[0];
+        if (!file) {
+            window.progress.updateStatus('Please select a file', true);
+            return;
+        }
+
+        // Validate file type and size
+        if (!file.name.toLowerCase().endsWith('.epub')) {
+            window.progress.updateStatus('Only EPUB files are allowed', true);
+            return;
+        }
+
+        if (file.size > 50 * 1024 * 1024) {
+            window.progress.updateStatus('File size must be less than 50MB', true);
+            return;
+        }
+
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('level', this.compressionLevel.value);
+        formData.append('taskId', Date.now().toString());
+
+        this.updateUIBeforeCompression();
+
+        try {
+            const response = await fetch('/api/compress', {
+                method: 'POST',
+                body: formData
+            });
+
+            const responseData = await response.json();
+
+            if (!response.ok) {
+                const errorMessage = responseData.error?.message || 'Compression failed';
+                throw new Error(errorMessage);
+            }
+
+            if (responseData.status !== 'success' || !responseData.data?.taskId) {
+                throw new Error('Invalid server response');
+            }
+
+            // Start polling for progress
+            this.startPolling(responseData.data.taskId);
+
+        } catch (error) {
+            console.error('Compression error:', error);
+            window.progress.updateStatus(
+                `Error: ${error.message}`,
+                true
+            );
+            this.stopPolling();
+            this.compressButton.disabled = false;
+        }
+    }
+
     startPolling(taskId) {
-        // 每秒轮询一次进度
+        // Poll progress every second
         this.pollInterval = setInterval(async () => {
             try {
                 const response = await fetch(`/api/status?taskId=${taskId}`);
+                const responseData = await response.json();
+
                 if (!response.ok) {
-                    throw new Error('Failed to fetch status');
+                    const errorMessage = responseData.error?.message || 'Failed to fetch status';
+                    throw new Error(errorMessage);
                 }
-                
-                const data = await response.json();
-                
-                if (data.status === 'processing') {
-                    window.progress.updateProgress(data.progress);
-                } else if (data.status === 'completed') {
-                    this.showCompressionResult(data.result);
-                    this.stopPolling();
-                } else if (data.status === 'error') {
-                    throw new Error(data.error);
+
+                if (responseData.status !== 'success') {
+                    throw new Error(responseData.error?.message || 'Unknown error');
+                }
+
+                const data = responseData.data;
+
+                switch (data.status) {
+                    case 'processing':
+                        window.progress.updateProgress(data.progress || 0);
+                        window.progress.updateStatus('Processing...');
+                        break;
+                    case 'completed':
+                        if (data.result) {
+                            this.showCompressionResult(data.result);
+                            this.stopPolling();
+                        }
+                        break;
+                    case 'error':
+                        throw new Error(data.error?.message || 'Compression failed');
+                    default:
+                        throw new Error('Unknown status');
                 }
             } catch (error) {
                 console.error('Status check error:', error);
@@ -50,65 +121,6 @@ class Compressor {
         if (this.pollInterval) {
             clearInterval(this.pollInterval);
             this.pollInterval = null;
-        }
-    }
-
-    async startCompression() {
-        const file = this.fileInput.files[0];
-        if (!file) {
-            window.progress.updateStatus('Please select a file', true);
-            return;
-        }
-
-        // 验证文件类型和大小
-        if (!file.name.toLowerCase().endsWith('.epub')) {
-            window.progress.updateStatus('Only EPUB files are allowed', true);
-            return;
-        }
-
-        if (file.size > 50 * 1024 * 1024) {
-            window.progress.updateStatus('File size must be less than 50MB', true);
-            return;
-        }
-
-        const formData = new FormData();
-        formData.append('file', file);
-        formData.append('level', this.compressionLevel.value);
-
-        const taskId = Date.now().toString();
-        formData.append('taskId', taskId);
-
-        this.updateUIBeforeCompression();
-
-        try {
-            // 发送压缩请求
-            const response = await fetch('/api/compress', {
-                method: 'POST',
-                body: formData
-            });
-
-            if (!response.ok) {
-                const errorData = await response.json();
-                throw new Error(errorData.error || 'Compression failed');
-            }
-
-            // 初始响应只包含任务ID确认
-            const result = await response.json();
-            if (!result.taskId) {
-                throw new Error('Invalid server response');
-            }
-
-            // 开始轮询进度
-            this.startPolling(taskId);
-
-        } catch (error) {
-            console.error('Compression error:', error);
-            window.progress.updateStatus(
-                `Error: ${error.message || 'Compression failed'}`, 
-                true
-            );
-            this.stopPolling();
-            this.compressButton.disabled = false;
         }
     }
 

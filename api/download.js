@@ -1,70 +1,82 @@
 const path = require('path');
 const os = require('os');
-const fs = require('fs');
-const fsPromises = require('fs').promises;
+const fs = require('fs').promises;
+const { createReadStream } = require('fs');
 
-// 验证文件名安全性
+// Validate file name
 function isValidFileName(fileName) {
     return /^[a-zA-Z0-9-_]+\.epub$/.test(fileName) && 
            !fileName.includes('..') && 
            !fileName.includes('/');
 }
 
+// Download handler
 module.exports = async (req, res) => {
     try {
         const fileName = req.query.file;
 
-        // 基本验证
         if (!fileName) {
-            return res.status(400).json({ error: 'File name is required' });
+            return res.sendError({
+                message: 'File name is required',
+                code: 'MISSING_FILENAME'
+            });
         }
 
-        // 文件名安全性检查
         if (!isValidFileName(fileName)) {
-            return res.status(400).json({ error: 'Invalid file name' });
+            return res.sendError({
+                message: 'Invalid file name',
+                code: 'INVALID_FILENAME'
+            });
         }
 
-        // 获取文件路径
         const filePath = path.join(os.tmpdir(), fileName);
 
         try {
-            // 检查文件是否存在
-            await fsPromises.access(filePath);
+            await fs.access(filePath);
         } catch (error) {
-            return res.status(404).json({ error: 'File not found' });
+            return res.sendError({
+                message: 'File not found',
+                code: 'FILE_NOT_FOUND'
+            });
         }
 
-        // 设置响应头
+        // Set response headers
         res.setHeader('Content-Type', 'application/epub+zip');
         res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
 
-        // 流式传输文件
-        const fileStream = fs.createReadStream(filePath);
+        // Stream the file
+        const fileStream = createReadStream(filePath);
         
-        // 错误处理
         fileStream.on('error', (error) => {
             console.error('Stream error:', error);
             if (!res.headersSent) {
-                res.status(500).json({ error: 'Stream error' });
+                res.sendError({
+                    message: 'Failed to read file',
+                    code: 'STREAM_ERROR'
+                });
             }
             res.end();
         });
 
-        // 文件传输完成后清理
+        // Clean up after download
         fileStream.on('end', async () => {
             try {
-                await fsPromises.unlink(filePath);
+                await fs.unlink(filePath);
             } catch (error) {
                 console.error('Error deleting temporary file:', error);
             }
         });
 
-        // 开始传输
+        // Start streaming
         fileStream.pipe(res);
+
     } catch (error) {
         console.error('Download error:', error);
         if (!res.headersSent) {
-            res.status(500).json({ error: 'Download failed' });
+            res.sendError({
+                message: 'Download failed',
+                code: 'DOWNLOAD_ERROR'
+            });
         }
         res.end();
     }

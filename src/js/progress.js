@@ -1,38 +1,33 @@
-class ProgressManager {
+class Progress {
     constructor() {
         this.progressBar = document.getElementById('progressBar');
         this.progressText = document.getElementById('progressText');
         this.progressPercent = document.getElementById('progressPercent');
         this.statusMessage = document.getElementById('statusMessage');
-        this.progressSection = document.getElementById('progressSection');
     }
 
     updateProgress(percent) {
         this.progressBar.style.width = `${percent}%`;
-        this.progressPercent.textContent = `${percent}%`;
-        this.progressSection.hidden = false;
+        this.progressPercent.textContent = `${Math.round(percent)}%`;
     }
 
     updateStatus(message, isError = false) {
         this.statusMessage.textContent = message;
-        this.statusMessage.className = 'status-message ' + (isError ? 'error' : '');
+        this.statusMessage.className = isError ? 'status-message error' : 'status-message';
         
         if (!isError) {
             this.progressText.textContent = message;
         }
-        
-        this.progressSection.hidden = false;
     }
 
     reset() {
         this.progressBar.style.width = '0%';
         this.progressPercent.textContent = '0%';
-        this.progressText.textContent = 'Ready to start...';
+        this.progressText.textContent = 'Ready to compress';
         this.statusMessage.textContent = '';
         this.statusMessage.className = 'status-message';
-        this.progressSection.hidden = true;
     }
 }
 
-// Initialize progress manager
-window.progress = new ProgressManager(); 
+// Initialize progress
+window.progress = new Progress(); 

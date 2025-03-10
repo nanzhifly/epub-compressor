@@ -2,12 +2,13 @@ const multer = require('multer');
 const AdmZip = require('adm-zip');
 const path = require('path');
 const os = require('os');
-const fs = require('fs');
+const fs = require('fs').promises;
 const sharp = require('sharp');
-const { promisify } = require('util');
 const { setTaskStatus } = require('./status');
+const { pipeline } = require('stream/promises');
+const { createReadStream, createWriteStream } = require('fs');
 
-// 优化的压缩配置
+// Compression configuration
 const optimizedCompressionConfig = {
     text: {
         low: { level: 6, method: 'DEFLATE', dictionary: true },
@@ -50,77 +51,27 @@ const optimizedCompressionConfig = {
     }
 };
 
-// 配置文件上传
-const upload = multer({
-    storage: multer.memoryStorage(),
-    limits: {
-        fileSize: 50 * 1024 * 1024, // 50MB限制
-    },
-    fileFilter: (req, file, cb) => {
-        if (file.mimetype === 'application/epub+zip' || 
-            path.extname(file.originalname).toLowerCase() === '.epub') {
-            cb(null, true);
-        } else {
-            cb(new Error('Only EPUB files are allowed'));
-        }
-    }
-}).single('file');
-
-// 进度监控类
-class CompressionProgress {
-    constructor() {
-        this.total = 0;
-        this.processed = 0;
-        this.callbacks = new Set();
-    }
-    
-    update(processed) {
-        this.processed = processed;
-        this.notifyProgress();
-    }
-    
-    notifyProgress() {
-        const progress = (this.processed / this.total) * 100;
-        this.callbacks.forEach(cb => cb(progress));
-    }
-}
-
-// 智能文件类型检测
+// File type detection
 function getFileType(filename) {
     const ext = path.extname(filename).toLowerCase();
-    // 文本文件
     if (['.html', '.xhtml', '.htm', '.css', '.xml', '.opf', '.ncx', '.txt', '.js'].includes(ext)) {
         return 'text';
     }
-    // 图片文件
     if (['.jpg', '.jpeg', '.png', '.gif', '.svg', '.webp'].includes(ext)) {
         return 'images';
     }
-    // 字体文件
     if (['.ttf', '.otf', '.woff', '.woff2'].includes(ext)) {
         return 'fonts';
     }
     return 'others';
 }
 
-// 检测图片格式
-async function detectImageFormat(buffer) {
-    try {
-        const metadata = await sharp(buffer).metadata();
-        return metadata.format;
-    } catch (error) {
-        console.error('Image format detection error:', error);
-        return null;
-    }
-}
-
-// 优化图片处理
+// Image optimization
 async function optimizeImage(buffer, config) {
     try {
         let sharpInstance = sharp(buffer);
         const metadata = await sharpInstance.metadata();
         
-        // 如果配置要求调整大小且图片超过最大尺寸
         if (config.resize && 
             (metadata.width > config.maxWidth || metadata.height > config.maxHeight)) {
             sharpInstance = sharpInstance.resize(config.maxWidth, config.maxHeight, {
@@ -129,7 +80,6 @@ async function optimizeImage(buffer, config) {
             });
         }
 
-        // 根据图片格式选择最佳压缩方法
         if (config.format === 'auto') {
             switch (metadata.format) {
                 case 'jpeg':
@@ -149,32 +99,39 @@ async function optimizeImage(buffer, config) {
                         .jpeg({ quality: config.quality, progressive: true })
                         .toBuffer();
             }
-        } else {
-            // 保持原始格式
-            switch (metadata.format) {
-                case 'jpeg':
-                    return await sharpInstance
-                        .jpeg({ quality: config.quality, progressive: true })
-                        .toBuffer();
-                case 'png':
-                    return await sharpInstance
-                        .png({ quality: config.quality, compressionLevel: 9 })
-                        .toBuffer();
-                default:
-                    return buffer;
-            }
+        }
+
+        // Preserve original format
+        switch (metadata.format) {
+            case 'jpeg':
+                return await sharpInstance
+                    .jpeg({ quality: config.quality, progressive: true })
+                    .toBuffer();
+            case 'png':
+                return await sharpInstance
+                    .png({ quality: config.quality, compressionLevel: 9 })
+                    .toBuffer();
+            default:
+                return buffer;
         }
     } catch (error) {
         console.error('Image optimization error:', error);
-        return buffer; // 如果优化失败，返回原图
+        return buffer;
     }
 }
 
-// 压缩EPUB文件
-async function compressEpub(buffer, level, taskId) {
+// EPUB compression
+async function compressEpub(inputPath, level, taskId) {
     try {
-        const zip = new AdmZip(buffer);
-        const entries = zip.getEntries();
+        const zip = new AdmZip();
+        const tempDir = path.join(os.tmpdir(), `epub-${taskId}`);
+        await fs.mkdir(tempDir, { recursive: true });
+
+        // Extract files
+        const originalZip = new AdmZip(inputPath);
+        originalZip.extractAllTo(tempDir, true);
+
+        const entries = originalZip.getEntries();
         const totalEntries = entries.length;
         let processedEntries = 0;
         let totalSaved = 0;
@@ -185,36 +142,34 @@ async function compressEpub(buffer, level, taskId) {
                 continue;
             }
 
+            const entryPath = path.join(tempDir, entry.entryName);
             const fileType = getFileType(entry.entryName);
             const config = optimizedCompressionConfig[fileType][level];
-            const entryData = entry.getData();
-            const originalSize = entryData.length;
 
-            let optimizedData;
+            let buffer = await fs.readFile(entryPath);
+            const originalSize = buffer.length;
+
             if (fileType === 'images') {
-                // 图片优化处理
-                optimizedData = await optimizeImage(entryData, config);
-            } else {
-                // 其他文件直接使用配置的压缩级别
-                optimizedData = entryData;
+                buffer = await optimizeImage(buffer, config);
             }
 
-            // 更新文件
-            zip.updateFile(entry.entryName, optimizedData, '', {
+            await fs.writeFile(entryPath, buffer);
+            zip.addFile(entry.entryName, buffer, '', {
                 compression: config.method === 'DEFLATE' ? 8 : 0,
                 compressionLevel: config.level || 0
             });
 
-            // 计算节省的空间
-            const newSize = optimizedData.length;
+            const newSize = buffer.length;
             totalSaved += Math.max(0, originalSize - newSize);
 
             processedEntries++;
-            // 更新任务进度
-            setTaskStatus(taskId, 'processing', {
+            await setTaskStatus(taskId, 'processing', {
                 progress: Math.round((processedEntries / totalEntries) * 100)
             });
         }
+
+        // Clean up temp directory
+        await fs.rm(tempDir, { recursive: true, force: true });
 
         return {
             buffer: zip.toBuffer(),
@@ -226,85 +181,100 @@ async function compressEpub(buffer, level, taskId) {
     }
 }
 
-// 错误处理类
-class CompressionError extends Error {
-    constructor(message, code, details) {
-        super(message);
-        this.code = code;
-        this.details = details;
-    }
-}
-
-function handleCompressionError(error, res) {
-    console.error('Compression error:', error);
-    
-    if (error instanceof CompressionError) {
-        res.status(400).json({
-            error: error.message,
-            code: error.code,
-            details: error.details
-        });
-    } else {
-        res.status(500).json({
-            error: 'Internal server error',
-            message: error.message
-        });
-    }
-}
-
-// 主处理函数
+// Main handler
 module.exports = async (req, res) => {
-    const taskId = req.body.taskId;
-    if (!taskId) {
-        return res.status(400).json({ error: 'Task ID is required' });
-    }
+    const { filePath } = req.body;
+    let outputPath = null;
 
     try {
-        // 处理文件上传
-        await new Promise((resolve, reject) => {
-            upload(req, res, (err) => {
-                if (err) reject(new CompressionError('Upload failed', 'UPLOAD_ERROR', err.message));
-                else resolve();
+        const taskId = req.body.taskId;
+        
+        if (!taskId) {
+            return res.sendError({
+                message: 'Task ID is required',
+                code: 'MISSING_TASK_ID'
             });
-        });
-
-        if (!req.file) {
-            throw new CompressionError('No file uploaded', 'NO_FILE');
         }
 
-        // 初始化任务状态
-        setTaskStatus(taskId, 'processing', { progress: 0 });
+        if (!filePath) {
+            return res.sendError({
+                message: 'No file uploaded',
+                code: 'NO_FILE'
+            });
+        }
 
-        // 开始压缩
+        // Initialize task
+        await setTaskStatus(taskId, 'processing', { progress: 0 });
+
+        // Start compression
         const level = req.body.level || 'medium';
+        if (!['low', 'medium', 'high'].includes(level)) {
+            return res.sendError({
+                message: 'Invalid compression level',
+                code: 'INVALID_LEVEL'
+            });
+        }
+
+        const stats = await fs.stat(filePath);
         const { buffer: compressedData, totalSaved } = await compressEpub(
-            req.file.buffer,
+            filePath,
             level,
             taskId
         );
-        
-        const compressedSize = compressedData.length;
 
-        // 保存压缩后的文件
-        const fileName = `${path.basename(req.file.originalname, '.epub')}-compressed.epub`;
-        const outputPath = path.join(os.tmpdir(), fileName);
-        await fs.promises.writeFile(outputPath, compressedData);
+        if (!compressedData || compressedData.length === 0) {
+            throw new Error('Compression failed');
+        }
 
-        // 设置任务完成状态
+        // Save compressed file
+        const fileName = `${path.basename(filePath, '.epub')}-compressed.epub`;
+        outputPath = path.join(os.tmpdir(), fileName);
+        await fs.writeFile(outputPath, compressedData);
+
+        // Clean up input file
+        await fs.unlink(filePath);
+
+        // Update task status
         const result = {
-            originalSize: req.file.size,
-            compressedSize,
-            compressionRatio: ((1 - compressedSize / req.file.size) * 100).toFixed(2),
+            originalSize: stats.size,
+            compressedSize: compressedData.length,
+            compressionRatio: ((1 - compressedData.length / stats.size) * 100).toFixed(2),
             spacesSaved: totalSaved,
             downloadUrl: `/api/download?file=${encodeURIComponent(fileName)}`
         };
 
-        setTaskStatus(taskId, 'completed', { result });
+        await setTaskStatus(taskId, 'completed', { result });
 
-        // 返回初始响应
-        res.json({ taskId });
+        // Send response
+        return res.sendSuccess({
+            taskId,
+            message: 'Compression started successfully'
+        });
 
     } catch (error) {
-        handleCompressionError(error, res);
+        console.error('Compression error:', error);
+        
+        // Clean up files
+        try {
+            if (filePath) {
+                await fs.unlink(filePath);
+            }
+            if (outputPath) {
+                await fs.unlink(outputPath);
+            }
+        } catch (cleanupError) {
+            console.error('Error cleaning up files:', cleanupError);
+        }
+        
+        if (req.body.taskId) {
+            await setTaskStatus(req.body.taskId, 'error', {
+                error: {
+                    message: error.message,
+                    code: error.code || 'COMPRESSION_ERROR'
+                }
+            });
+        }
+
+        return res.sendError(error);
     }
 }; 
