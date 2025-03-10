@@ -72,4 +72,4 @@ http://localhost:3000
 
 ## 开源协议
 
-MIT License 
+MIT License
