@@ -1,27 +1,21 @@
 {
   "version": 2,
+  "buildCommand": "npm install",
+  "outputDirectory": "src",
   "builds": [
-    { 
+    {
       "src": "server.js",
       "use": "@vercel/node"
-    },
-    { 
-      "src": "src/**/*",
-      "use": "@vercel/static"
     }
   ],
   "routes": [
     {
       "src": "/api/(.*)",
-      "dest": "/server.js"
-    },
-    {
-      "handle": "filesystem"
+      "dest": "server.js"
     },
     {
       "src": "/(.*)",
-      "dest": "/src/$1",
-      "continue": true
+      "dest": "/$1"
     }
   ],
   "env": {
@@ -30,11 +24,5 @@
     "MAX_BATCH_FILES": "10",
     "COMPRESSION_CACHE_DURATION": "86400000",
     "MAX_CONCURRENT_COMPRESSIONS": "5"
-  },
-  "functions": {
-    "api/**/*.js": {
-      "memory": 1024,
-      "maxDuration": 60
-    }
   }
 } 
