@@ -1,14 +1,25 @@
 const express = require('express');
 const path = require('path');
+const multer = require('multer');
 const compress = require('./api/compress');
 const download = require('./api/download');
 const { setupWebSocket } = require('./api/websocket');
 const http = require('http');
 
+// 创建 Express 应用
 const app = express();
 
 // 创建 HTTP 服务器
 const server = http.createServer(app);
+
+// 配置 multer
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: {
+    fileSize: process.env.MAX_FILE_SIZE || 52428800, // 50MB
+    files: 1
+  }
+}).single('file');
 
 // 设置文件大小限制
 app.use(express.json({ limit: '50mb' }));
@@ -18,7 +29,7 @@ app.use(express.urlencoded({ limit: '50mb', extended: true }));
 app.use((req, res, next) => {
   res.header('Access-Control-Allow-Origin', '*');
   res.header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-  res.header('Access-Control-Allow-Headers', 'Content-Type');
+  res.header('Access-Control-Allow-Headers', 'Content-Type, X-Requested-With');
   
   // 处理 OPTIONS 请求
   if (req.method === 'OPTIONS') {
@@ -28,12 +39,35 @@ app.use((req, res, next) => {
   next();
 });
 
+// 错误处理中间件
+app.use((err, req, res, next) => {
+  console.error('Error:', err);
+  res.status(err.status || 500).json({
+    error: err.message || 'Internal Server Error',
+    details: process.env.NODE_ENV === 'development' ? err.stack : undefined
+  });
+});
+
 // 设置静态文件服务
 const staticPath = path.join(__dirname, 'src');
 app.use(express.static(staticPath));
 
 // API 路由
-app.post('/api/compress', compress);
+app.post('/api/compress', (req, res, next) => {
+  upload(req, res, (err) => {
+    if (err) {
+      if (err.code === 'LIMIT_FILE_SIZE') {
+        return res.status(413).json({
+          error: 'File too large',
+          details: `Maximum file size is ${process.env.MAX_FILE_SIZE / (1024 * 1024)}MB`
+        });
+      }
+      return next(err);
+    }
+    compress(req, res, next);
+  });
+});
+
 app.get('/api/download', download);
 
 // 处理根路由
@@ -55,6 +89,14 @@ app.get('/api/health', (req, res) => {
 
 // 设置 WebSocket
 setupWebSocket(server);
+
+// 启动服务器（本地开发环境）
+if (process.env.NODE_ENV !== 'production') {
+  const PORT = process.env.PORT || 3000;
+  server.listen(PORT, () => {
+    console.log(`Server is running on port ${PORT}`);
+  });
+}
 
 // 导出 server 实例供 Vercel 使用
 module.exports = server; 

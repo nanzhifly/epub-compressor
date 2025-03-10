@@ -14,12 +14,12 @@
   ],
   "routes": [
     {
-      "handle": "filesystem"
-    },
-    {
       "src": "/ws",
       "dest": "/server.js",
-      "check": true
+      "headers": {
+        "Upgrade": "websocket",
+        "Connection": "upgrade"
+      }
     },
     {
       "src": "/api/(.*)",
@@ -27,13 +27,15 @@
       "headers": {
         "Access-Control-Allow-Origin": "*",
         "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-        "Access-Control-Allow-Headers": "Content-Type"
+        "Access-Control-Allow-Headers": "Content-Type, X-Requested-With"
       }
     },
     {
+      "handle": "filesystem"
+    },
+    {
       "src": "/(.*)",
-      "dest": "/src/$1",
-      "continue": true
+      "dest": "/src/$1"
     }
   ],
   "env": {
