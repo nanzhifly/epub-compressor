@@ -6,16 +6,24 @@
     {
       "src": "server.js",
       "use": "@vercel/node"
+    },
+    {
+      "src": "src/**/*",
+      "use": "@vercel/static"
     }
   ],
   "routes": [
     {
+      "handle": "filesystem"
+    },
+    {
       "src": "/api/(.*)",
-      "dest": "server.js"
+      "dest": "/server.js"
     },
     {
       "src": "/(.*)",
-      "dest": "/$1"
+      "dest": "/src/$1",
+      "continue": true
     }
   ],
   "env": {

@@ -14,7 +14,8 @@ app.use((req, res, next) => {
 });
 
 // 设置静态文件服务
-app.use(express.static(path.join(__dirname, 'src')));
+const staticPath = path.join(__dirname, 'src');
+app.use(express.static(staticPath));
 
 // API 路由
 app.post('/api/compress', compress);
@@ -22,7 +23,14 @@ app.get('/api/download', download);
 
 // 处理根路由
 app.get('/', (req, res) => {
-  res.sendFile(path.join(__dirname, 'src', 'index.html'));
+  res.sendFile(path.join(staticPath, 'index.html'));
+});
+
+// 处理其他路由，返回 index.html（用于 SPA）
+app.get('*', (req, res) => {
+  if (!req.path.startsWith('/api')) {
+    res.sendFile(path.join(staticPath, 'index.html'));
+  }
 });
 
 // 处理 Vercel 的健康检查
