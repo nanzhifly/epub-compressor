@@ -5,6 +5,7 @@ const os = require('os');
 const fs = require('fs');
 const sharp = require('sharp');
 const { promisify } = require('util');
+const { setTaskStatus } = require('./status');
 
 // 优化的压缩配置
 const optimizedCompressionConfig = {
@@ -170,7 +171,7 @@ async function optimizeImage(buffer, config) {
 }
 
 // 压缩EPUB文件
-async function compressEpub(buffer, level, progressCallback) {
+async function compressEpub(buffer, level, taskId) {
     try {
         const zip = new AdmZip(buffer);
         const entries = zip.getEntries();
@@ -209,9 +210,10 @@ async function compressEpub(buffer, level, progressCallback) {
             totalSaved += Math.max(0, originalSize - newSize);
 
             processedEntries++;
-            if (progressCallback) {
-                progressCallback((processedEntries / totalEntries) * 100);
-            }
+            // 更新任务进度
+            setTaskStatus(taskId, 'processing', {
+                progress: Math.round((processedEntries / totalEntries) * 100)
+            });
         }
 
         return {
@@ -250,9 +252,13 @@ function handleCompressionError(error, res) {
     }
 }
 
+// 主处理函数
 module.exports = async (req, res) => {
-    const progress = new CompressionProgress();
-    
+    const taskId = req.body.taskId;
+    if (!taskId) {
+        return res.status(400).json({ error: 'Task ID is required' });
+    }
+
     try {
         // 处理文件上传
         await new Promise((resolve, reject) => {
@@ -266,16 +272,15 @@ module.exports = async (req, res) => {
             throw new CompressionError('No file uploaded', 'NO_FILE');
         }
 
-        const compressionLevel = req.body.level || 'medium';
-        const originalSize = req.file.size;
+        // 初始化任务状态
+        setTaskStatus(taskId, 'processing', { progress: 0 });
 
-        // 压缩文件
+        // 开始压缩
+        const level = req.body.level || 'medium';
         const { buffer: compressedData, totalSaved } = await compressEpub(
-            req.file.buffer, 
-            compressionLevel,
-            (progress) => {
-                console.log(`Compression progress: ${progress}%`);
-            }
+            req.file.buffer,
+            level,
+            taskId
         );
         
         const compressedSize = compressedData.length;
@@ -285,15 +290,20 @@ module.exports = async (req, res) => {
         const outputPath = path.join(os.tmpdir(), fileName);
         await fs.promises.writeFile(outputPath, compressedData);
 
-        // 返回结果
-        res.status(200).json({
-            originalSize,
+        // 设置任务完成状态
+        const result = {
+            originalSize: req.file.size,
             compressedSize,
-            compressionRatio: ((1 - compressedSize / originalSize) * 100).toFixed(2),
+            compressionRatio: ((1 - compressedSize / req.file.size) * 100).toFixed(2),
             spacesSaved: totalSaved,
-            downloadUrl: `/api/download?file=${encodeURIComponent(fileName)}`,
-            message: 'File compressed successfully'
-        });
+            downloadUrl: `/api/download?file=${encodeURIComponent(fileName)}`
+        };
+
+        setTaskStatus(taskId, 'completed', { result });
+
+        // 返回初始响应
+        res.json({ taskId });
+
     } catch (error) {
         handleCompressionError(error, res);
     }
