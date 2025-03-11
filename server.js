@@ -25,6 +25,11 @@ app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'src', 'index.html'));
 });
 
+// 处理其他所有路由
+app.get('*', (req, res) => {
+  res.sendFile(path.join(__dirname, 'src', 'index.html'));
+});
+
 // 处理 Vercel 的健康检查
 app.get('/api/health', (req, res) => {
   res.status(200).json({ status: 'ok' });

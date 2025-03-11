@@ -15,12 +15,12 @@
     },
     {
       "src": "/(.*)",
-      "dest": "/$1"
+      "dest": "server.js"
     }
   ],
   "env": {
     "NODE_ENV": "production",
-    "MAX_FILE_SIZE": "52428800",
+    "MAX_FILE_SIZE": "4194304",
     "MAX_BATCH_FILES": "10",
     "COMPRESSION_CACHE_DURATION": "86400000",
     "MAX_CONCURRENT_COMPRESSIONS": "5"
