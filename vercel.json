@@ -1,0 +1,21 @@
+{
+    "version": 2,
+    "builds": [
+        {
+            "src": "server.js",
+            "use": "@vercel/node"
+        }
+    ],
+    "routes": [
+        {
+            "src": "/(.*)",
+            "dest": "server.js"
+        }
+    ],
+    "env": {
+        "NODE_ENV": "production",
+        "MAX_FILE_SIZE": "4194304",
+        "COMPRESSION_CACHE_DURATION": "3600000",
+        "MAX_CONCURRENT_COMPRESSIONS": "3"
+    }
+} 
