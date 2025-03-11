@@ -18,18 +18,22 @@ class FileUploader {
         
         this.ERROR_MESSAGES = {
             FILE_TOO_LARGE: {
-                title: '⚠️ 文件大小超出限制',
-                details: (size) => `当前文件大小：${size}
-最大允许大小：4MB
+                title: '⚠️ File size exceeds limit',
+                details: (size) => `Current file size: ${size}
+Maximum allowed: 4MB
 
-您可以：
-  • 使用其他工具预压缩
-  • 将文件分割成更小的部分
-  • 使用本地压缩软件处理`
+You can:
+  • Pre-compress with other tools
+  • Split into smaller files
+  • Use local compression software`
             },
             INVALID_FORMAT: {
-                title: '⚠️ 不支持的文件格式',
-                details: '仅支持 EPUB 格式的电子书文件'
+                title: '⚠️ Invalid file format',
+                details: 'Please upload an EPUB format file'
+            },
+            UPLOAD_ERROR: {
+                title: '⚠️ Upload failed',
+                details: 'An error occurred during file upload, please try again'
             }
         };
         
@@ -77,8 +81,35 @@ class FileUploader {
         }
     }
 
+    async uploadFile(file) {
+        try {
+            const formData = new FormData();
+            formData.append('file', file);
+            formData.append('taskId', Date.now().toString());
+
+            const response = await fetch('/api/compress', {
+                method: 'POST',
+                body: formData
+            });
+
+            if (!response.ok) {
+                const error = await response.json();
+                throw new Error(error.error.message || 'Upload failed');
+            }
+
+            const result = await response.json();
+            return result;
+        } catch (error) {
+            this.showError(
+                this.ERROR_MESSAGES.UPLOAD_ERROR.title,
+                error.message || this.ERROR_MESSAGES.UPLOAD_ERROR.details
+            );
+            throw error;
+        }
+    }
+
     processFile(file) {
-        // 验证文件类型
+        // Validate file type
         if (!file.name.toLowerCase().endsWith('.epub')) {
             this.showError(
                 this.ERROR_MESSAGES.INVALID_FORMAT.title,
@@ -87,7 +118,7 @@ class FileUploader {
             return;
         }
 
-        // 验证文件大小
+        // Validate file size
         if (file.size > this.maxFileSize) {
             const sizeMB = this.formatFileSize(file.size);
             this.showError(
@@ -97,16 +128,10 @@ class FileUploader {
             return;
         }
 
-        // 显示文件信息
-        this.fileName.textContent = file.name;
-        this.fileSize.textContent = this.formatFileSize(file.size);
-        
-        // 显示压缩面板
-        this.compressionPanel.style.display = 'block';
-        
-        // 重置其他面板
-        document.getElementById('progressSection').style.display = 'none';
-        document.getElementById('downloadSection').style.display = 'none';
+        // Start upload
+        this.uploadFile(file).catch(error => {
+            console.error('Upload error:', error);
+        });
     }
 
     showError(title, details) {
@@ -117,17 +142,17 @@ class FileUploader {
             <pre class="error-details">${details}</pre>
         `;
         
-        // 清除之前的错误消息
+        // Clear previous error message
         const oldMessage = document.querySelector('.status-message');
         if (oldMessage) {
             oldMessage.remove();
         }
         
-        // 插入新的错误消息
+        // Insert new error message
         const dropZone = document.getElementById('dropZone');
         dropZone.parentNode.insertBefore(statusMessage, dropZone.nextSibling);
         
-        // 添加抖动动画
+        // Add shake animation
         statusMessage.classList.add('shake');
         setTimeout(() => statusMessage.classList.remove('shake'), 500);
     }
@@ -141,5 +166,5 @@ class FileUploader {
     }
 }
 
-// 初始化文件上传器
+// Initialize file uploader
 window.fileUploader = new FileUploader(); 

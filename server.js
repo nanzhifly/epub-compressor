@@ -62,7 +62,7 @@ app.use((req, res, next) => {
         const errorResponse = {
             status: 'error',
             error: {
-                message: error.message || '未知错误',
+                message: error.message || 'Unknown error',
                 code: error.code || 'UNKNOWN_ERROR',
                 suggestion: error.suggestion
             }
