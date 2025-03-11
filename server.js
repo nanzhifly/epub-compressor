@@ -33,14 +33,15 @@ const upload = multer({
 }).single('file');
 
 // Request size limits
-app.use(express.json({ limit: '50mb' }));
-app.use(express.urlencoded({ limit: '50mb', extended: true }));
+app.use(express.json({ limit: '4mb' }));
+app.use(express.urlencoded({ limit: '4mb', extended: true }));
 
 // CORS middleware
 app.use((req, res, next) => {
     res.header('Access-Control-Allow-Origin', '*');
     res.header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
     res.header('Access-Control-Allow-Headers', 'Content-Type, X-Requested-With');
+    res.header('Access-Control-Max-Age', '86400');
     
     if (req.method === 'OPTIONS') {
         return res.status(200).end();
@@ -57,12 +58,13 @@ app.use((req, res, next) => {
         });
     };
 
-    res.sendError = (error, status = 400) => {
+    res.sendError = (error) => {
         const errorResponse = {
             status: 'error',
             error: {
-                message: error.message || 'Unknown error',
-                code: error.code || 'UNKNOWN_ERROR'
+                message: error.message || '未知错误',
+                code: error.code || 'UNKNOWN_ERROR',
+                suggestion: error.suggestion
             }
         };
 
@@ -70,7 +72,7 @@ app.use((req, res, next) => {
             errorResponse.error.stack = error.stack;
         }
 
-        res.status(status).json(errorResponse);
+        res.status(error.status || 400).json(errorResponse);
     };
 
     next();
